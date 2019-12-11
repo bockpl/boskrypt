@@ -135,9 +135,7 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
 				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
-                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6445:6445 --net cluster_network --ip $BO_IP bockpl/bocompute #-e DEBUG=true bockpl/bocompute:develop
-				# old one
-#				docker run -dt --rm --name bocompute -h $(hostname -f) --cpus $RDZENIE_BOCOMPUTE --memory $(echo ""$PAMIEC_BOCOMPUTE"G") --memory-swap $(echo ""$PAMIEC_BOCOMPUTE"G") --shm-size=$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g --device /dev/fuse -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc --privileged -p 6445:6445 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) bockpl/bocompute
+                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6445:6445 --net cluster_network --ip $BO_IP bockpl/bocompute 
 				status=$?
                 		log_end_msg $status
 			else
