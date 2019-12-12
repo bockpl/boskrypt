@@ -10,7 +10,7 @@
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
-
+# test
 . /lib/lsb/init-functions
 
 # Zmienne:
