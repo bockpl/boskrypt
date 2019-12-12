@@ -14,14 +14,31 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 . /lib/lsb/init-functions
 
 # Zmienne:
-#BOCOMPUTE=bocompute
 BOQMASTER=boqmaster
+BO_REPO="bockpl/${BOQMASTER}"
+DEV_NAME=bond0
+BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
+BO_HOSTNAME="${BOQMASTER}"
+BO_IP="10.0.0.$BO_NUMBER"
+BO_JPYHUB="/opt/software/Blueocean/Configs/jupyterhub/jupyterhub_config.py:/var/run/jupyterhub/jupyterhub_config.py"
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
-RDZENIE_BOCOMPUTE=$(expr $ILOSC_RDZENI_CPU - 1)
+RDZENIE_BOQMASTER=$(expr $ILOSC_RDZENI_CPU - 1)
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
-PAMIEC_BOCOMPUTE=$(expr $ILOSC_PAMIECI - 1)
+PAMIEC_BOQMASTER=$(expr $ILOSC_PAMIECI - 1)
+PAMIEC_BOQMASTER_G="$(echo ""$PAMIEC_BOQMASTER"G")"
+#
+SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+# Deklaracja zmiennych mfs sciezek home i opt
+BO_HOME="/home"
+BO_OPT="/opt"
+MFS_CHUNK="/opt"
+MFS_TARGET=""
+MFS_BASICPATH="/blueocean"
+MFS_LOCALPATH="/srv/blueocean"
+MFS_HOME="$MFS_LOCALPATH/home"
+MFS_OPT="$MFS_LOCALPATH/opt"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -39,6 +56,36 @@ function getManagerSwarm() {
 	umount /mnt
 }
 
+# montowanie mfs
+function MFSpathMounter() {
+        if [ "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathMounter"
+        else
+                mfsmount -H mfsmaster -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+        fi
+}
+
+# odmontowanie mfs
+function MFSpathUmounter() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathUmounter"
+        else
+                umount $MFS_LOCALPATH/$MFS_TARGET
+        fi
+}
+
+# sprawdzenie czy mfs jest zamontowany
+function MFSpathChecker() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
 
 
 case $1 in
@@ -69,11 +116,28 @@ case $1 in
                                 log_end_msg $status
 		fi
 
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOQMASTER}); then
 				log_daemon_msg "Build  and start ${BOQMASTER} container"
-#				docker run -dt --rm --name boqmaster -h $(hostname -f) --device /dev/fuse --privileged -p 6444:6444 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) lokalnerepo
-				docker run -dt --rm --name boqmaster -h $(hostname -f) -v /opt:/opt -v /home:/home -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -v /opt/software/Blueocean/Configs/jupyterhub/jupyterhub_config.py:/var/run/jupyterhub/jupyterhub_config.py -p 6444:6444 -p 8000:8000 -p 8081:8081  --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boqmaster
+				docker run -dt --rm --name ${BOQMASTER} -h ${BO_HOSTNAME} -v --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -v ${BO_JPYHUB} -p 6444:6444 -p 8000:8000 -p 8081:8081  --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 				status=$?
                 		log_end_msg $status
 			else
@@ -84,10 +148,16 @@ case $1 in
 		fi
 		;;
 	stop)
-		log_daemon_msg "Stop ${BOCOMPUTE} container" 
+		log_daemon_msg "Stop ${BOQMASTER} container" 
                 docker stop ${BOQMASTER}
                 status=$?
                 log_end_msg $status
+                # odmontowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathUmounter
+                        MFS_TARGET=""
+                done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start
