@@ -10,17 +10,34 @@
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
-
+# test
 . /lib/lsb/init-functions
 
 # Zmienne:
 BOACCESS=boaccess
+DEV_NAME=bond0
+BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
+BO_HOSTNAME="boa1"
+#BO_HOSTNAME="bo$BO_NUMBER"
+BO_IP="10.0.0.$BO_NUMBER"
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
 RDZENIE_BOACCESS=$(expr $ILOSC_RDZENI_CPU - 1)
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
 PAMIEC_BOACCESS=$(expr $ILOSC_PAMIECI - 1)
+PAMIEC_BOACCESS_G="$(echo ""$PAMIEC_BOCOMPUTE"G")"
+#
+SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+# Deklaracja zmiennych mfs sciezek home i opt
+BO_HOME="/home"
+BO_OPT="/opt"
+MFS_CHUNK="/opt"
+MFS_TARGET=""
+MFS_BASICPATH="/blueocean"
+MFS_LOCALPATH="/srv/blueocean"
+MFS_HOME="${MFS_LOCALPATH}/home"
+MFS_OPT="${MFS_LOCALPATH}/opt"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -38,6 +55,36 @@ function getManagerSwarm() {
 #	umount /opt
 }
 
+# montowanie mfs
+function MFSpathMounter() {
+        if [ "${MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathMounter"
+        else
+                mfsmount -H mfsmaster -S ${MFS_BASICPATH}/${MFS_TARGET} ${MFS_LOCALPATH}/${MFS_TARGET} >& /dev/null
+        fi
+}
+
+# odmontowanie mfs
+function MFSpathUmounter() {
+        if [  "${MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathUmounter"
+        else
+                umount ${MFS_LOCALPATH}/${MFS_TARGET}
+        fi
+}
+
+# sprawdzenie czy mfs jest zamontowany
+function MFSpathChecker() {
+        if [  "${MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "${MFS_LOCALPATH}/${MFS_TARGET}"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
 
 
 case $1 in
@@ -68,12 +115,32 @@ case $1 in
                                 log_end_msg $status
 		fi
 
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ ${MFS_STATE} == 1 ]; then
+                                # to be mounted
+                                echo "${MFS_LOCALPATH}/${MFS_TARGET} zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ ${MFS_STATE} == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        fi
+                        MFS_TARGET=""
+                done
+
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOACCESS}); then
 				log_daemon_msg "Build  and start ${BOACCESS} container"
 #				docker run -dt --rm --name boaccess -h $(hostname -f) --cpus $RDZENIE_BOACCESS --memory $(echo ""$PAMIEC_BOACCESS"G") --memory-swap $(echo ""$PAMIEC_BOACCESS"G") --shm-size=$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g --device /dev/fuse -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc --privileged -p 6445:6445 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) lokalnerepo
 #				docker run -dt --rm --name boaccess -h boa1 --cpus $RDZENIE_BOACCESS --device /dev/fuse --privileged -p 2222:22 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boaccess
-				docker run -dt --rm --name boaccess -e LANG=en_US.UTF-8 --cpus $RDZENIE_BOACCESS --memory $(echo ""$PAMIEC_BOACCESS"G") --memory-swap $(echo ""$PAMIEC_BOACCESS"G") -h boa1 -v /home:/home -v /opt:/opt -p 2222:22 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boaccess
+				docker run -dt --rm --name ${BOACCESS} -e LANG=en_US.UTF-8 --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true bockpl/${BOACCESS}
+#				old one
+#				docker run -dt --rm --name boaccess -e LANG=en_US.UTF-8 --cpus $RDZENIE_BOACCESS --memory $(echo ""$PAMIEC_BOACCESS"G") --memory-swap $(echo ""$PAMIEC_BOACCESS"G") -h boa1 -v /home:/home -v /opt:/opt -p 2222:22 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boaccess
 				status=$?
                 		log_end_msg $status
 			else
@@ -88,6 +155,12 @@ case $1 in
                 docker stop ${BOACCESS}
                 status=$?
                 log_end_msg $status
+                # odmontowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathUmounter
+                        MFS_TARGET=""
+                done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start
