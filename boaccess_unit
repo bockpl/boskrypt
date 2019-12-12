@@ -15,10 +15,10 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOACCESS=boaccess
+BO_REPO="bockpl/${BOACCESS}"
 DEV_NAME=bond0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="boa1"
-#BO_HOSTNAME="bo$BO_NUMBER"
 BO_IP="10.0.0.$BO_NUMBER"
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
@@ -136,11 +136,7 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOACCESS}); then
 				log_daemon_msg "Build  and start ${BOACCESS} container"
-#				docker run -dt --rm --name boaccess -h $(hostname -f) --cpus $RDZENIE_BOACCESS --memory $(echo ""$PAMIEC_BOACCESS"G") --memory-swap $(echo ""$PAMIEC_BOACCESS"G") --shm-size=$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g --device /dev/fuse -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc --privileged -p 6445:6445 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) lokalnerepo
-#				docker run -dt --rm --name boaccess -h boa1 --cpus $RDZENIE_BOACCESS --device /dev/fuse --privileged -p 2222:22 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boaccess
-				docker run -dt --rm --name ${BOACCESS} -e LANG=en_US.UTF-8 --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true bockpl/${BOACCESS}
-#				old one
-#				docker run -dt --rm --name boaccess -e LANG=en_US.UTF-8 --cpus $RDZENIE_BOACCESS --memory $(echo ""$PAMIEC_BOACCESS"G") --memory-swap $(echo ""$PAMIEC_BOACCESS"G") -h boa1 -v /home:/home -v /opt:/opt -p 2222:22 --net cluster_network --ip $(echo 10.0.0.$(hostname -i | cut -d "." -f4)) -e DEBUG=true bockpl/boaccess
+				docker run -dt --rm --name ${BOACCESS} -e LANG=en_US.UTF-8 --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 				status=$?
                 		log_end_msg $status
 			else

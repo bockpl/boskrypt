@@ -15,6 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocompute
+BO_REPO="bockpl/${BOCOMPUTE}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="bo$BO_NUMBER"
@@ -135,7 +136,7 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
 				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
-                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6445:6445 --net cluster_network --ip $BO_IP bockpl/bocompute 
+                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
