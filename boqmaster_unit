@@ -148,8 +148,7 @@ case $1 in
 		  log_daemon_msg "Build  and start ${BOQMASTER} container"
 		    docker run -dt --rm --name ${BOQMASTER} -h ${BO_HOSTNAME} --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G \
 	              --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME \
-		      -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6444:6444 -p 8000:8000 \ 
-                      --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
+		      -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6444:6444 -p 8000:8000 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 		    status=$?
                   log_end_msg $status
 		else
