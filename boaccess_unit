@@ -15,8 +15,8 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOACCESS=boaccess
-BO_REPO="bockpl/${BOACCESS}"
-DEV_NAME=bond0
+BO_REPO="bockpl/${BOACCESS}:v1.9.5"
+DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="boa1"
 BO_IP="10.0.0.$BO_NUMBER"
@@ -38,6 +38,11 @@ MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="${MFS_LOCALPATH}/home"
 MFS_OPT="${MFS_LOCALPATH}/opt"
+# Deklaracja sciezki LDAP
+MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+BO_LDAPCONF="/etc/nslcd.conf"
+# Deklaracja czlonu -v
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF}"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -136,7 +141,7 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOACCESS}); then
 				log_daemon_msg "Build  and start ${BOACCESS} container"
-				docker run -dt --rm --name ${BOACCESS} -e LANG=en_US.UTF-8 --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
+				docker run -dt --rm --name ${BOACCESS} --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} ${minusV} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 				status=$?
                 		log_end_msg $status
 			else

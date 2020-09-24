@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOQMASTER=boqmaster
-BO_REPO="bockpl/${BOQMASTER}"
+BO_REPO="bockpl/${BOQMASTER}:v1.9.5"
 DEV_NAME=ens160
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="${BOQMASTER}"
@@ -40,6 +40,17 @@ MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
+# Deklaracja sciezki LDAP
+MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+BO_LDAPCONF="/etc/nslcd.conf"
+# Deklaracja aliasow
+MFS_ALIAS="/etc/aliases"
+BO_ALIAS=":/etc/aliases"
+# Deklaracja msmtp
+MFS_MSMTP="/etc/msmtprc"
+BO_MSMTP="/etc/msmtprc"
+# Deklaracja czlonu -v
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP}"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -147,8 +158,7 @@ case $1 in
 		if ! (docker ps -a|grep -q ${BOQMASTER}); then
 		  log_daemon_msg "Build  and start ${BOQMASTER} container"
 		    docker run -dt --rm --name ${BOQMASTER} -h ${BO_HOSTNAME} --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G \
-	              --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE -v $MFS_OPT:$BO_OPT -v $MFS_HOME:$BO_HOME \
-		      -v /etc/aliases:/etc/aliases -v /etc/msmtprc:/etc/msmtprc -p 6444:6444 -p 8000:8000 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
+	              --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE ${minusV} -p 6444:6444 -p 8000:8000 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 		    status=$?
                   log_end_msg $status
 		else
