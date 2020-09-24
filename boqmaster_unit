@@ -46,7 +46,7 @@ MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja aliasow
 MFS_ALIAS="/etc/aliases"
-BO_ALIAS=":/etc/aliases"
+BO_ALIAS="/etc/aliases"
 # Deklaracja msmtp
 MFS_MSMTP="/etc/msmtprc"
 BO_MSMTP="/etc/msmtprc"

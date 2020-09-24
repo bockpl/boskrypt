@@ -50,7 +50,8 @@ MFS_MSMTP="/etc/msmtprc"
 BO_MSMTP="/etc/msmtprc"
 # Deklaracja czlonu -v
 minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP}"
-
+# Deklaracja srodowiska NVIDIA
+BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
     if [ "$(docker info | grep Swarm | sed 's/Swarm: //g')" == "active" ]; then
@@ -149,7 +150,7 @@ case $1 in
 		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
 				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
                                 docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
-                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
+                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
