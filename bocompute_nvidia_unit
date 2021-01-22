@@ -152,20 +152,20 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
 				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
-                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
                                 --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
-				log_daemon_msg "Start ${BOCOMPUTE} container"
-				docker start ${BOCOMPUTE}
+				log_daemon_msg "Start ${BO_HOSTNAME} container"
+				docker start ${BO_HOSTNAME}
 				status=$?
                 		log_end_msg $status
 		fi
 		;;
 	stop)
-		log_daemon_msg "Stop ${BOCOMPUTE} container" 
-                docker stop ${BOCOMPUTE}
+		log_daemon_msg "Stop ${BO_HOSTNAME} container" 
+                docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
                 # odmontowanie MFS
