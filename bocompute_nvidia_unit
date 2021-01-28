@@ -56,18 +56,16 @@ BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPAB
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-    if [ "$(docker info | grep Swarm | sed 's/Swarm: //g')" == "active" ]; then
-        return 0
-    else
-        return 1
-    fi
+	if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+		return 0
+	else
+        	return 1
+	fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
 function getManagerSwarm() {
-#	mfsmount -H mfsmaster -S /blueocean/opt/software/Blueocean/Configs /opt >& /dev/null
 	SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list) 
-#	umount /opt
 }
 
 # montowanie mfs
