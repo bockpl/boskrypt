@@ -39,32 +39,31 @@ MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
+MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
 MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja aliasow
-MFS_ALIAS="/etc/aliases"
+MFS_ALIAS="$MFS_CONFIGS/aliases"
 BO_ALIAS="/etc/aliases"
 # Deklaracja msmtp
-MFS_MSMTP="/etc/msmtprc"
+MFS_MSMTP="$MFS_CONFIGS/msmtprc"
 BO_MSMTP="/etc/msmtprc"
 # Deklaracja czlonu -v
 minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP}"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-    if [ "$(docker info | grep Swarm | sed 's/Swarm: //g')" == "active" ]; then
-        return 0
-    else
-        return 1
-    fi
+	if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+		return 0
+	else
+        	return 1
+	fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
 function getManagerSwarm() {
-	mfsmount -H mfsmaster -S /blueocean/opt/software/Blueocean/Configs /opt >& /dev/null
-	SWARMMAN=$(cat /opt/swarm_manager.list) 
-	umount /opt
+	SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list) 
 }
 
 # montowanie mfs
@@ -72,7 +71,7 @@ function MFSpathMounter() {
         if [ "$MFS_TARGET" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathMounter"
         else
-                mfsmount -H mfsmaster -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
         fi
 }
 
@@ -101,6 +100,25 @@ function MFSpathChecker() {
 
 case $1 in
         start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
+		# Sprawdzenie czy nod jest czescia swarma
 		isSwarmNode
 		Status=$?
 		if [[ $Status = 0 ]]; then
@@ -127,41 +145,23 @@ case $1 in
                                 log_end_msg $status
 		fi
 
-                # Montowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathChecker
-                        MFS_STATE=$?
-                        if [ $MFS_STATE == 1 ]; then
-                                # to be mounted
-                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
-                                MFSpathMounter
-                        elif [ $MFS_STATE == 0 ]; then
-                                # mounted
-                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
-                        fi
-                        MFS_TARGET=""
-                done
-
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
 				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
-                                docker run -dt --rm --name ${BOCOMPUTE} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
                                 --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
-				log_daemon_msg "Start ${BOCOMPUTE} container"
-				docker start ${BOCOMPUTE}
+				log_daemon_msg "Start ${BO_HOSTNAME} container"
+				docker start ${BO_HOSTNAME}
 				status=$?
                 		log_end_msg $status
 		fi
 		;;
 	stop)
-		log_daemon_msg "Stop ${BOCOMPUTE} container" 
-                docker stop ${BOCOMPUTE}
+		log_daemon_msg "Stop ${BO_HOSTNAME} container" 
+                docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
                 # odmontowanie MFS
