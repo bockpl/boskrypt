@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOACCESS=boaccess
-BO_VERSION="v1.9.5"
+BO_VERSION="v1.9.7"
 BO_REPO="bockpl/${BOACCESS}:${BO_VERSION}"
 DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -39,15 +39,16 @@ MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="${MFS_LOCALPATH}/home"
 MFS_OPT="${MFS_LOCALPATH}/opt"
+MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
-MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja czlonu -v
 minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF}"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-    if [ "$(docker info | grep Swarm | sed 's/Swarm: //g')" == "active" ]; then
+    if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ]; then
         return 0
     else
         return 1
@@ -56,9 +57,7 @@ function isSwarmNode(){
 
 # Pobranie aktualnej konfiguracji swarm:
 function getManagerSwarm() {
-	mfsmount -H mfsmaster -S /blueocean/opt/software/Blueocean/Configs /opt >& /dev/null
-	SWARMMAN=$(cat /opt/swarm_manager.list) 
-#	umount /opt
+	SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list) 
 }
 
 # montowanie mfs
@@ -142,7 +141,8 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BOACCESS}); then
 				log_daemon_msg "Build  and start ${BOACCESS} container"
-				docker run -dt --rm --name ${BOACCESS} --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} --memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} ${minusV} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
+				docker run -dt --rm --name ${BOACCESS} --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} \
+				--memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} ${minusV} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
 				status=$?
                 		log_end_msg $status
 			else

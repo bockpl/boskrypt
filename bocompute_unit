@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocomputex
-BO_VERSION="v1.9.5"
+BO_VERSION="v1.9.7"
 BO_REPO="bockpl/${BOCOMPUTE}:${BO_VERSION}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -41,7 +41,7 @@ MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
 MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
-MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja aliasow
 MFS_ALIAS="$MFS_CONFIGS/aliases"
@@ -54,11 +54,11 @@ minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${B
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-	if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
-		return 0
-	else
-        	return 1
-	fi
+      if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+            return 0
+      else
+            return 1
+      fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
@@ -100,25 +100,6 @@ function MFSpathChecker() {
 
 case $1 in
         start)
-                # Montowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathChecker
-                        MFS_STATE=$?
-                        if [ $MFS_STATE == 1 ]; then
-                                # to be mounted
-                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
-                                MFSpathMounter
-                        elif [ $MFS_STATE == 0 ]; then
-                                # mounted
-                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
-                        fi
-                        MFS_TARGET=""
-                done
-
-		# Sprawdzenie czy nod jest czescia swarma
 		isSwarmNode
 		Status=$?
 		if [[ $Status = 0 ]]; then
@@ -145,9 +126,27 @@ case $1 in
                                 log_end_msg $status
 		fi
 
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
 		# Uruchomienie kontenera:
-		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
-				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
+		if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+				log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
                                 docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
                                 --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?

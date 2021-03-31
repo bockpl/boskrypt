@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocomputex
-BO_VERSION="v1.9.5"
+BO_VERSION="v1.9.7"
 BO_REPO="bockpl/${BOCOMPUTE}:${BO_VERSION}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -41,7 +41,7 @@ MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
 MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
-MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja aliasow
 MFS_ALIAS="$MFS_CONFIGS/aliases"
@@ -148,8 +148,8 @@ case $1 in
 		fi
 
 		# Uruchomienie kontenera:
-		if ! (docker ps -a|grep -q ${BOCOMPUTE}); then
-				log_daemon_msg "Build  and start ${BOCOMPUTE} container"
+		if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+				log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
                                 docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
                                 --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
