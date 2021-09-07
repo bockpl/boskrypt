@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOQMASTER=boqmaster
-BO_VERSION="v1.9.8"
+BO_VERSION="v2.1.0"
 BO_REPO="bockpl/${BOQMASTER}:${BO_VERSION}"
 DEV_NAME=ens160
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -29,8 +29,8 @@ ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev |
 PAMIEC_BOQMASTER=$(expr $ILOSC_PAMIECI - 1)
 PAMIEC_BOQMASTER_G="$(echo ""$PAMIEC_BOQMASTER"G")"
 #
-#SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
-SHM_SIZE=3
+SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+#SHM_SIZE=3
 # Deklaracja zmiennych mfs sciezek home i opt
 MFSMASTER=mfsmaster.dev.p.lodz.pl
 BO_HOME="/home"
@@ -41,38 +41,41 @@ MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
+MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
-MFS_LDAPCONF="/srv/blueocean/opt/software/Blueocean/Configs/nslcd.conf"
+MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
 # Deklaracja aliasow
-MFS_ALIAS="/etc/aliases"
+MFS_ALIAS="$MFS_CONFIGS/aliases"
 BO_ALIAS="/etc/aliases"
 # Deklaracja msmtp
-MFS_MSMTP="/etc/msmtprc"
+MFS_MSMTP="$MFS_CONFIGS/msmtprc"
 BO_MSMTP="/etc/msmtprc"
+# Deklaracja sciezki SLURM
+MFS_SLURMCONF="$MFS_CONFIGS/slurmconf"
+BO_SLURMCONF="/etc/slurm"
+## Deklaracja munge
+#MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
+#BO_MUNGEKEY="/etc/slurm/munge.key"
 # Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP}"
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+# Deklaracja portów
+BO_PORTS="-p 8000:8000" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
+# Deklaracja srodowiska NVIDIA
+BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-    if [ "$(docker info | grep Swarm | sed 's/Swarm: //g')" == "active" ]; then
-        return 0
-    else
-        return 1
-    fi
+        if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+                return 0
+        else
+                return 1
+        fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
 function getManagerSwarm() {
-	mfsmount -H $MFSMASTER -S /blueocean/opt/software/Blueocean/Configs /mnt >& /dev/null 
-	status=$?
-	if [ status = 0 ]; then
-          SWARMMAN=$(cat /mnt/swarm_manager.list)
-	  umount /mnt
-	  return 0
-	else
-	  return 1
-	fi
+        SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list)
 }
 
 # montowanie mfs
@@ -80,7 +83,7 @@ function MFSpathMounter() {
         if [ "$MFS_TARGET" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathMounter"
         else
-                mfsmount -H $MFSMASTER -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
         fi
 }
 
@@ -109,34 +112,6 @@ function MFSpathChecker() {
 
 case $1 in
         start)
-		#isSwarmNode
-		Status=0
-		Status=$?
-		if [[ $Status = 0 ]]; then
-				echo "Nod jest czescia klastra Bluecoean SWARM "
-			else
-				log_daemon_msg "Add node to Blueocan Docker SWARM"
-				echo "Nod nie jest czescia klastra Blueocean SWARM, podejmuje probe dolaczenia:"
-
-				# Wybranie dzialajacego managera swarm:
-				#getManagerSwarm
-				SWARMMAN="192.168.200.94"
-				for MANAGER in $(echo $SWARMMAN); do
-					nmap -p 2377 $MANAGER |grep open > /dev/null
-					MANAGER_STATUS=$?
-					if [ $MANAGER_STATUS -eq 0 ]; then
-						echo "Aktywny Manager Blueceoan SWARM: $MANAGER"
-						break 
-					fi 
-				done
-
-				# Dolaczenie noda do Klastra Blueocean SWARM:
-				log_daemon_msg "Add node to Blueocean SWARM klaster"
-				docker swarm join --token SWMTKN-1-47qvoqne5tiyailbxb41xe767mhsfim9bs5e5ahniabnxlm7hv-1oojwf1ijsi43em2pq74odxou $MANAGER:2377
-				qstatus=$?
-                                log_end_msg $status
-		fi
-
                 # Montowanie MFS
                 for i in home opt ; do
                         MFS_TARGET="$i"
@@ -155,31 +130,58 @@ case $1 in
                         MFS_TARGET=""
                 done
 
-		# Uruchomienie kontenera:
-		if ! (docker ps -a|grep -q ${BOQMASTER}); then
-		  log_daemon_msg "Build  and start ${BOQMASTER} container"
-		    docker run -dt --rm --name ${BOQMASTER} -h ${BO_HOSTNAME} --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G \
-	              --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE ${minusV} -p 6444:6444 -p 8000:8000 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
-		    status=$?
-                  log_end_msg $status
-		else
-		  log_daemon_msg "Start ${BOQMASTER} container"
-		  docker start ${BOQMASTER}
-		  status=$?
-                  log_end_msg $status
+                # Sprawdzenie czy nod jest czescia swarma
+                isSwarmNode
+		Status=$?
+		if [[ $Status = 0 ]]; then
+				echo "Nod jest czescia klastra Bluecoean SWARM "
+			else
+				log_daemon_msg "Add node to Blueocan Docker SWARM"
+				echo "Nod nie jest czescia klastra Blueocean SWARM, podejmuje probe dolaczenia:"
+
+				# Wybranie dzialajacego managera swarm:
+				getManagerSwarm
+				for MANAGER in $(echo $SWARMMAN); do
+					nmap -p 2377 $MANAGER |grep open > /dev/null
+					MANAGER_STATUS=$?
+					if [ $MANAGER_STATUS -eq 0 ]; then
+						echo "Aktywny Manager Blueceoan SWARM: $MANAGER"
+						break 
+					fi 
+				done
+
+				# Dolaczenie noda do Klastra Blueocean SWARM:
+				log_daemon_msg "Add node to Blueocean SWARM klaster"
+				docker swarm join --token SWMTKN-1-47qvoqne5tiyailbxb41xe767mhsfim9bs5e5ahniabnxlm7hv-1oojwf1ijsi43em2pq74odxou $MANAGER:2377
+				status=$?
+                                log_end_msg $status
 		fi
+
+                # Uruchomienie kontenera:
+                if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+                                log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
+                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO}
+                                status=$?
+                                log_end_msg $status
+                        else
+                                log_daemon_msg "Start ${BO_HOSTNAME} container"
+                                docker start ${BO_HOSTNAME}
+                                status=$?
+                                log_end_msg $status
+                fi
 		;;
 	stop)
-		log_daemon_msg "Stop ${BOQMASTER} container" 
-                docker stop ${BOQMASTER}
+		log_daemon_msg "Stop ${BO_HOSTNAME} container" 
+                docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
                 # odmontowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathUmounter
-                        MFS_TARGET=""
-                done
+                #for i in home opt ; do
+                #        MFS_TARGET="$i"
+                #        MFSpathUmounter
+                #        MFS_TARGET=""
+                #done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start
