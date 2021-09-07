@@ -1,0 +1,137 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:        ckpl
+# Required-Start:  $network $remote_fs $syslog
+# Required-Stop:   $network $remote_fs $syslog
+# Default-Start:   2 3 4 5
+# Default-Stop:    0 1 6
+# Short-Description: Start Blueocean node 
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
+
+. /lib/lsb/init-functions
+
+BO_IMAGE="osixia/openldap"
+BO_VERSION=1.3.0
+BO_HOSTNAME=bodb
+
+#BO_NUMBER="244"
+#BO_HOSTNAME="bo$BO_NUMBER"
+#BO_IP="10.0.0.$BO_NUMBER"
+
+# Deklaracja zmiennych mfs sciezek home i opt
+BO_HOME="/home"
+BO_OPT="/opt"
+MFS_CHUNK="/opt"
+MFS_TARGET=""
+MFS_BASICPATH="/blueocean"
+MFS_LOCALPATH="/srv/blueocean"
+MFS_HOME="$MFS_LOCALPATH/home"
+MFS_OPT="$MFS_LOCALPATH/opt"
+MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
+
+# Dane srodowiskowe
+BO_ORGANIZATION="UCI"
+BO_LDAPDOMAIN="kopl.bo"
+BO_ADMINPASS="$(cat /srv/blueocean/opt/software/Blueocean/Configs/passboldap)"
+BO_LDAPBASEDN="dc=kopl,dc=bo"
+
+environ="--env LDAP_ORGANIZATION="${BO_ORGANIZATION}" --env LDAP_DOMAIN="${BO_LDAPDOMAIN}" --env LDAP_ADMIN_PASSWORD="${BO_ADMINPASS}" --env LDAP_BASE_DN="${BO_LDAPBASEDN}""
+
+# Podpinane volumeny
+LOCAL_LDAPDBPATH="$MFS_CONFIGS/ldapdb"
+BO_LDAPDBPATH="/var/lib/ldap"
+LOCAL_LDAPCONFIG="$MFS_CONFIGS/ldapcfg"
+BO_LDAPCONFIG="/etc/ldap/slapd.d"
+
+volume="--volume ${LOCAL_LDAPDBPATH}:${BO_LDAPDBPATH} --volume ${LOCAL_LDAPCONFIG}:${BO_LDAPCONFIG}"
+
+# Porty
+BO_PORTS="-p 389:389 -p 636:636"
+
+# montowanie mfs
+function MFSpathMounter() {
+        if [ "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathMounter"
+        else
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+        fi
+}
+
+# odmontowanie mfs
+function MFSpathUmounter() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathUmounter"
+        else
+                umount $MFS_LOCALPATH/$MFS_TARGET
+        fi
+}
+
+# sprawdzenie czy mfs jest zamontowany
+function MFSpathChecker() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
+
+
+case $1 in
+        start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
+                # Uruchomienie kontenera:
+                if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+                                log_daemon_msg "Build and start ${BO_HOSTNAME} container"
+				docker run ${BO_PORTS} --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} --detach ${BO_IMAGE}:${BO_VERSION}
+                                status=$?
+                                log_end_msg $status
+                        else
+                                log_daemon_msg "Start ${BO_HOSTNAME} container"
+                                docker start ${BO_HOSTNAME}
+                                status=$?
+                                log_end_msg $status
+                fi
+                ;;
+
+        stop)
+                log_daemon_msg "Stop ${BO_HOSTNAME} container"
+                docker stop ${BO_HOSTNAME}
+                status=$?
+                log_end_msg $status
+                ;;
+
+        restart|force-reload)
+                $0 stop && sleep 2 && $0 start
+                ;;
+
+         *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 2
+                ;;
+
+esac
+

@@ -1,0 +1,174 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:        ckpl
+# Required-Start:  $network $remote_fs $syslog
+# Required-Stop:   $network $remote_fs $syslog
+# Default-Start:   2 3 4 5
+# Default-Stop:    0 1 6
+# Short-Description: Start Blueocean node 
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
+
+. /lib/lsb/init-functions
+
+BO_IMAGE=mysql
+BO_VERSION=5.7
+BO_HOSTNAME=mysql
+
+BO_NUMBER="244"
+#BO_HOSTNAME="bo$BO_NUMBER"
+BO_IP="10.0.0.$BO_NUMBER"
+
+# Deklaracja zmiennych mfs sciezek home i opt
+BO_HOME="/home"
+BO_OPT="/opt"
+MFS_CHUNK="/opt"
+MFS_TARGET=""
+MFS_BASICPATH="/blueocean"
+MFS_LOCALPATH="/srv/blueocean"
+MFS_HOME="$MFS_LOCALPATH/home"
+MFS_OPT="$MFS_LOCALPATH/opt"
+MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
+
+# Dane srodowiskowe
+BO_RANDOMROOTPASS="yes"
+BO_MYSQLDB="slurm_acct_db"
+BO_MYSQLUSER="slurm"
+BO_MYSQLPASS="$(cat /srv/blueocean/opt/software/Blueocean/Configs/passbomysql)"
+
+environ="--env MYSQL_RANDOM_ROOT_PASSWORD="${BO_RANDOMROOTPASS}" --env MYSQL_DATABASE="${BO_MYSQLDB}" --env MYSQL_USER="${BO_MYSQLUSER}" --env MYSQL_PASSWORD="${BO_MYSQLPASS}""
+
+# Podpinane volumeny
+LOCAL_MYSQLDBPATH="$MFS_CONFIGS/mysqldb"
+BO_MYSQLDBPATH="/var/lib/mysql"
+
+volume="--volume ${LOCAL_MYSQLDBPATH}:${BO_MYSQLDBPATH}"
+
+# Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
+function isSwarmNode(){
+        if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+                return 0
+        else
+                return 1
+        fi
+}
+
+# Pobranie aktualnej konfiguracji swarm:
+function getManagerSwarm() {
+        SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list)
+}
+
+# montowanie mfs
+function MFSpathMounter() {
+        if [ "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathMounter"
+        else
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+        fi
+}
+
+# odmontowanie mfs
+function MFSpathUmounter() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathUmounter"
+        else
+                umount $MFS_LOCALPATH/$MFS_TARGET
+        fi
+}
+
+# sprawdzenie czy mfs jest zamontowany
+function MFSpathChecker() {
+        if [  "$MFS_TARGET" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
+
+
+case $1 in
+        start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
+                # Sprawdzenie czy nod jest czescia swarma
+                isSwarmNode
+                Status=$?
+                if [[ $Status = 0 ]]; then
+                                echo "Nod jest czescia klastra Bluecoean SWARM "
+                        else
+                                log_daemon_msg "Add node to Blueocan Docker SWARM"
+                                echo "Nod nie jest czescia klastra Blueocean SWARM, podejmuje probe dolaczenia:"
+
+                                # Wybranie dzialajacego managera swarm:
+                                getManagerSwarm
+                                for MANAGER in $(echo $SWARMMAN); do
+                                        nmap -p 2377 $MANAGER |grep open > /dev/null
+                                        MANAGER_STATUS=$?
+                                        if [ $MANAGER_STATUS -eq 0 ]; then
+                                                echo "Aktywny Manager Blueceoan SWARM: $MANAGER"
+                                                break
+                                        fi
+                                done
+
+                                # Dolaczenie noda do Klastra Blueocean SWARM:
+                                log_daemon_msg "Add node to Blueocean SWARM klaster"
+                                docker swarm join --token SWMTKN-1-47qvoqne5tiyailbxb41xe767mhsfim9bs5e5ahniabnxlm7hv-1oojwf1ijsi43em2pq74odxou $MANAGER:2377
+                                status=$?
+                                log_end_msg $status
+                fi
+
+                # Uruchomienie kontenera:
+                if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+                                log_daemon_msg "Build and start ${BO_HOSTNAME} container"
+				docker run --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} \
+				--net cluster_network --ip ${BO_IP} --detach ${BO_IMAGE}:${BO_VERSION}
+                                status=$?
+                                log_end_msg $status
+                        else
+                                log_daemon_msg "Start ${BO_HOSTNAME} container"
+                                docker start ${BO_HOSTNAME}
+                                status=$?
+                                log_end_msg $status
+                fi
+                ;;
+
+        stop)
+                log_daemon_msg "Stop ${BO_HOSTNAME} container"
+                docker stop ${BO_HOSTNAME}
+                status=$?
+                log_end_msg $status
+                ;;
+
+        restart|force-reload)
+                $0 stop && sleep 2 && $0 start
+                ;;
+
+         *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 2
+                ;;
+
+esac
+
