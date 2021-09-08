@@ -65,7 +65,7 @@ minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${B
 # Deklaracja portów
 BO_PORTS="" #"-p 2222:22" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
 # Deklaracja srodowiska NVIDIA
-#BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+BO_NVIDIA="" #"--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
