@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocomputex
-BO_VERSION="v1.9.7"
+BO_VERSION="v2.1.0"
 BO_REPO="bockpl/${BOCOMPUTE}:${BO_VERSION}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -49,16 +49,25 @@ BO_ALIAS="/etc/aliases"
 # Deklaracja msmtp
 MFS_MSMTP="$MFS_CONFIGS/msmtprc"
 BO_MSMTP="/etc/msmtprc"
-# Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP}"
+# Deklaracja sciezki SLURM
+MFS_SLURMCONF="$MFS_CONFIGS/slurmconf"
+BO_SLURMCONF="/etc/slurm"
+## Deklaracja munge
+#MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
+#BO_MUNGEKEY="/etc/slurm/munge.key"
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+# Deklaracja portów
+BO_PORTS="" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
+# Deklaracja srodowiska NVIDIA
+BO_NVIDIA="" #"--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-      if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
-            return 0
-      else
-            return 1
-      fi
+	if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+		return 0
+	else
+        	return 1
+	fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
@@ -100,6 +109,25 @@ function MFSpathChecker() {
 
 case $1 in
         start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
+		# Sprawdzenie czy nod jest czescia swarma
 		isSwarmNode
 		Status=$?
 		if [[ $Status = 0 ]]; then
@@ -126,29 +154,11 @@ case $1 in
                                 log_end_msg $status
 		fi
 
-                # Montowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathChecker
-                        MFS_STATE=$?
-                        if [ $MFS_STATE == 1 ]; then
-                                # to be mounted
-                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
-                                MFSpathMounter
-                        elif [ $MFS_STATE == 0 ]; then
-                                # mounted
-                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
-                        fi
-                        MFS_TARGET=""
-                done
-
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
 				log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
                                 docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
-                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} -p 6445:6445 --net cluster_network --ip $BO_IP ${BO_REPO} 
+                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
@@ -163,12 +173,12 @@ case $1 in
                 docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
-                # odmontowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathUmounter
-                        MFS_TARGET=""
-                done
+                ## odmontowanie MFS
+                #for i in home opt ; do
+                #        MFS_TARGET="$i"
+                #        MFSpathUmounter
+                #        MFS_TARGET=""
+                #done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start
