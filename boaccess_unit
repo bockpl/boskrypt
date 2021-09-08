@@ -10,23 +10,24 @@
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
-# test
+
 . /lib/lsb/init-functions
 
 # Zmienne:
 BOACCESS=boaccess
-BO_VERSION="v1.9.8"
+BO_VERSION="v2.1.0"
 BO_REPO="bockpl/${BOACCESS}:${BO_VERSION}"
-DEV_NAME=eth0
+DEV_NAME=bond0 
+#DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
-BO_HOSTNAME="boa1"
+BO_HOSTNAME="bo$BO_NUMBER"
 BO_IP="10.0.0.$BO_NUMBER"
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
 RDZENIE_BOACCESS=$(expr $ILOSC_RDZENI_CPU - 1)
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
-PAMIEC_BOACCESS=$(expr $ILOSC_PAMIECI - 1)
+PAMIEC_BOACCESS=$(expr $ILOSC_PAMIECI - 4)
 PAMIEC_BOACCESS_G="$(echo ""$PAMIEC_BOACCESS"G")"
 #
 SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
@@ -37,22 +38,37 @@ MFS_CHUNK="/opt"
 MFS_TARGET=""
 MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
-MFS_HOME="${MFS_LOCALPATH}/home"
-MFS_OPT="${MFS_LOCALPATH}/opt"
+MFS_HOME="$MFS_LOCALPATH/home"
+MFS_OPT="$MFS_LOCALPATH/opt"
 MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
 # Deklaracja sciezki LDAP
 MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
-# Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF}"
+# Deklaracja aliasow
+MFS_ALIAS="$MFS_CONFIGS/aliases"
+BO_ALIAS="/etc/aliases"
+# Deklaracja msmtp
+MFS_MSMTP="$MFS_CONFIGS/msmtprc"
+BO_MSMTP="/etc/msmtprc"
+# Deklaracja sciezki SLURM
+MFS_SLURMCONF="$MFS_CONFIGS/slurmconf"
+BO_SLURMCONF="/etc/slurm"
+## Deklaracja munge
+#MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
+#BO_MUNGEKEY="/etc/slurm/munge.key"
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+# Deklaracja portów
+BO_PORTS="-p 2222:22" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
+# Deklaracja srodowiska NVIDIA
+#BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
-    if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ]; then
-        return 0
-    else
-        return 1
-    fi
+	if [ "$(docker info | grep Swarm | rev | cut -d' ' -f1 | rev)" == "active" ] ; then
+		return 0
+	else
+        	return 1
+	fi
 }
 
 # Pobranie aktualnej konfiguracji swarm:
@@ -62,28 +78,28 @@ function getManagerSwarm() {
 
 # montowanie mfs
 function MFSpathMounter() {
-        if [ "${MFS_TARGET}" == "" ]; then
+        if [ "$MFS_TARGET" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathMounter"
         else
-                mfsmount -H mfsmaster -S ${MFS_BASICPATH}/${MFS_TARGET} ${MFS_LOCALPATH}/${MFS_TARGET} >& /dev/null
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
         fi
 }
 
 # odmontowanie mfs
 function MFSpathUmounter() {
-        if [  "${MFS_TARGET}" == "" ]; then
+        if [  "$MFS_TARGET" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathUmounter"
         else
-                umount ${MFS_LOCALPATH}/${MFS_TARGET}
+                umount $MFS_LOCALPATH/$MFS_TARGET
         fi
 }
 
 # sprawdzenie czy mfs jest zamontowany
 function MFSpathChecker() {
-        if [  "${MFS_TARGET}" == "" ]; then
+        if [  "$MFS_TARGET" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathChecker"
         else
-                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "${MFS_LOCALPATH}/${MFS_TARGET}"`" == "" ]; then
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
                         return 1
                 else
                         return 0
@@ -94,6 +110,25 @@ function MFSpathChecker() {
 
 case $1 in
         start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ $MFS_STATE == 1 ]; then
+                                # to be mounted
+                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ $MFS_STATE == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
+                        elif [ $MFS_STATE == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                        fi
+                        MFS_TARGET=""
+                done
+
+		# Sprawdzenie czy nod jest czescia swarma
 		isSwarmNode
 		Status=$?
 		if [[ $Status = 0 ]]; then
@@ -120,49 +155,31 @@ case $1 in
                                 log_end_msg $status
 		fi
 
-                # Montowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathChecker
-                        MFS_STATE=$?
-                        if [ ${MFS_STATE} == 1 ]; then
-                                # to be mounted
-                                echo "${MFS_LOCALPATH}/${MFS_TARGET} zostanie zamontowane"
-                                MFSpathMounter
-                        elif [ ${MFS_STATE} == 0 ]; then
-                                # mounted
-                                echo "Znaleziono zamontowane ${MFS_LOCALPATH}/${MFS_TARGET}"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem ${MFS_LOCALPATH}/${MFS_TARGET}"
-                        fi
-                        MFS_TARGET=""
-                done
-
 		# Uruchomienie kontenera:
-		if ! (docker ps -a|grep -q ${BOACCESS}); then
-				log_daemon_msg "Build  and start ${BOACCESS} container"
-				docker run -dt --rm --name ${BOACCESS} --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} \
-				--memory-swap ${PAMIEC_BOACCESS_G} -h ${BO_HOSTNAME} ${minusV} -p 2222:22 --net cluster_network --ip ${BO_IP} -e DEBUG=true ${BO_REPO}
+		if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
+				log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOACCESS --memory $PAMIEC_BOACCESS_G \
+                                --memory-swap $PAMIEC_BOACCESS_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
-				log_daemon_msg "Start ${BOACCESS} container"
-				docker start ${BOACCESS}
+				log_daemon_msg "Start ${BO_HOSTNAME} container"
+				docker start ${BO_HOSTNAME}
 				status=$?
                 		log_end_msg $status
 		fi
 		;;
 	stop)
-		log_daemon_msg "Stop ${BOACCESS} container" 
-                docker stop ${BOACCESS}
+		log_daemon_msg "Stop ${BO_HOSTNAME} container" 
+                docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
-                # odmontowanie MFS
-                for i in home opt ; do
-                        MFS_TARGET="$i"
-                        MFSpathUmounter
-                        MFS_TARGET=""
-                done
+                ## odmontowanie MFS
+                #for i in home opt ; do
+                #        MFS_TARGET="$i"
+                #        MFSpathUmounter
+                #        MFS_TARGET=""
+                #done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start

@@ -160,8 +160,8 @@ case $1 in
                 # Uruchomienie kontenera:
                 if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
                                 log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
-                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOCOMPUTE --memory $PAMIEC_BOCOMPUTE_G \
-                                --memory-swap $PAMIEC_BOCOMPUTE_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO}
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G \
+                                --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO}
                                 status=$?
                                 log_end_msg $status
                         else
