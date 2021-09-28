@@ -28,8 +28,8 @@ RDZENIE_BOQMASTER=$(expr $ILOSC_RDZENI_CPU - 1)
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
 PAMIEC_BOQMASTER=$(expr $ILOSC_PAMIECI - 1)
 PAMIEC_BOQMASTER_G="$(echo ""$PAMIEC_BOQMASTER"G")"
-#SHM_SIZE=3
-SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+SHM_SIZE=3
+#SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
 # Deklaracja zmiennych mfs sciezek home i opt
 MFSMASTER=mfsmaster.dev.p.lodz.pl
 BO_HOME="/home"
@@ -61,7 +61,9 @@ minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${B
 # Deklaracja portów
 BO_PORTS="-p 8000:8000" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
 # Deklaracja srodowiska NVIDIA
-BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+BO_NVIDIA="" #"--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+# Debugowanie
+BO_DEBUG="-e DEBUG=true"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -159,8 +161,8 @@ case $1 in
                 # Uruchomienie kontenera:
                 if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
                                 log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
-                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOQMASTER --memory $PAMIEC_BOQMASTER_G \
-                                --memory-swap $PAMIEC_BOQMASTER_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO}
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h ${BO_HOSTNAME} --cpus ${RDZENIE_BOQMASTER} --memory ${PAMIEC_BOQMASTER_G} \
+                                --memory-swap ${PAMIEC_BOQMASTER_G} --shm-size=${SHM_SIZE} ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip ${BO_IP} ${BO_DEBUG} ${BO_REPO}
                                 status=$?
                                 log_end_msg $status
                         else

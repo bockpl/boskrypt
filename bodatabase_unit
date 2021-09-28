@@ -31,7 +31,7 @@ ILOSC_RDZENI_CPU=$(nproc)
 RDZENIE_BODATABASE=$(expr $ILOSC_RDZENI_CPU - 1)
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
-PAMIEC_BODATABASE=$(expr $ILOSC_PAMIECI - 4)
+PAMIEC_BODATABASE=$(expr $ILOSC_PAMIECI - 1)
 PAMIEC_BODATABASE_G="$(echo ""$PAMIEC_BODATABASE"G")"
 #
 SHM_SIZE=3
