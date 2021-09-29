@@ -18,19 +18,20 @@ BOACCESS=boaccess
 BO_VERSION="v2.1.0"
 BO_REPO="bockpl/${BOACCESS}:${BO_VERSION}"
 #DEV_NAME=eth0
-DEV_NAME=bond0 
+DEV_NAME=eth0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
-BO_HOSTNAME="bo$BO_NUMBER"
+BO_HOSTNAME="${BOACCESS}"
 BO_IP="10.0.0.$BO_NUMBER"
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
 RDZENIE_BOACCESS=$(expr $ILOSC_RDZENI_CPU - 1)
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
-PAMIEC_BOACCESS=$(expr $ILOSC_PAMIECI - 4)
+PAMIEC_BOACCESS=$(expr $ILOSC_PAMIECI - 1)
 PAMIEC_BOACCESS_G="$(echo ""$PAMIEC_BOACCESS"G")"
 #
-SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+#SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
+SHM_SIZE=3
 # Deklaracja zmiennych mfs sciezek home i opt
 BO_HOME="/home"
 BO_OPT="/opt"
@@ -61,6 +62,8 @@ minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${B
 BO_PORTS="-p 2222:22" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
 # Deklaracja srodowiska NVIDIA
 #BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+# Debugowanie
+BO_DEBUG="-e DEBUG=true"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
@@ -158,8 +161,8 @@ case $1 in
 		# Uruchomienie kontenera:
 		if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
 				log_daemon_msg "Build  and start ${BO_HOSTNAME} container"
-                                docker run -dt --rm --name ${BO_HOSTNAME} -h $BO_HOSTNAME --cpus $RDZENIE_BOACCESS --memory $PAMIEC_BOACCESS_G \
-                                --memory-swap $PAMIEC_BOACCESS_G --shm-size=$SHM_SIZE ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip $BO_IP DEBUG=true ${BO_REPO} 
+                                docker run -dt --rm --name ${BO_HOSTNAME} -h ${BO_HOSTNAME} --cpus ${RDZENIE_BOACCESS} --memory ${PAMIEC_BOACCESS_G} \
+                                --memory-swap ${PAMIEC_BOACCESS_G} --shm-size=${SHM_SIZE} ${minusV} ${BO_NVIDIA} ${BO_PORTS} --net cluster_network --ip ${BO_IP} ${BO_DEBUG} ${BO_REPO} 
 				status=$?
                 		log_end_msg $status
 			else
