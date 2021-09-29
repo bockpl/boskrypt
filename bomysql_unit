@@ -134,7 +134,7 @@ case $1 in
 
                                 # Dolaczenie noda do Klastra Blueocean SWARM:
                                 log_daemon_msg "Add node to Blueocean SWARM klaster"
-                                docker swarm join --token SWMTKN-1-47qvoqne5tiyailbxb41xe767mhsfim9bs5e5ahniabnxlm7hv-1oojwf1ijsi43em2pq74odxou $MANAGER:2377
+                                docker swarm join --token SWMTKN-1-03i2d2uwietrhya3b5qtryyyurzvxkg08wj2av06zm3q9jqut2-0i8gc7v463lmtpofab2urahx7 $MANAGER:2377
                                 status=$?
                                 log_end_msg $status
                 fi
