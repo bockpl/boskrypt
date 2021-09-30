@@ -53,11 +53,14 @@ BO_MSMTP="/etc/msmtprc"
 # Deklaracja sciezki SLURM
 MFS_SLURMCONF="$MFS_CONFIGS/slurmconf"
 BO_SLURMCONF="/etc/slurm"
+# Deklaracja sciezki dbd
+MFS_SLURMDBD="$MFS_CONFIGS/slurmdbd"
+BO_SLURMDBD="/var/lib/slurmd"
 ## Deklaracja munge
 #MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
 #BO_MUNGEKEY="/etc/slurm/munge.key"
 # Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
 # Deklaracja portów
 BO_PORTS="-p 8000:8000" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
 # Deklaracja srodowiska NVIDIA
