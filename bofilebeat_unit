@@ -1,0 +1,134 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:        ckpl
+# Required-Start:  $network $remote_fs $syslog
+# Required-Stop:   $network $remote_fs $syslog
+# Default-Start:   2 3 4 5
+# Default-Stop:    0 1 6
+# Short-Description: Start Blueocean node
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
+
+. /lib/lsb/init-functions
+
+BO_IMAGE="filebeat"
+BO_IMAGE_PATH="docker.elastic.co/beats"
+BO_VERSION=7.5.1
+BO_HOSTNAME="${HOSTNAME}"
+BO_NAME="${BO_IMAGE}"
+
+# Deklaracja zmiennych mfs sciezek home i opt
+BO_HOME="/home"
+BO_OPT="/opt"
+MFS_CHUNK="/opt"
+MFS_TARGET=""
+MFS_BASICPATH="/blueocean"
+MFS_LOCALPATH="/srv/blueocean"
+MFS_HOME="${MFS_LOCALPATH}/home"
+MFS_OPT="${MFS_LOCALPATH}/opt"
+MFS_CONFIGS="${MFS_OPT}/software/Blueocean/Configs"
+
+# Dane srodowiskowe
+environ="-u root --restart unless-stopped"
+
+# Podpinane volumeny
+LOCAL_FB="${MFS_CONFIGS}/filebeat"
+LOCAL_YML="${LOCAL_FB}/filebeat.yml"
+BO_YML="/usr/share/filebeat/filebeat.yml"
+LOCAL_DOCKER="/var/lib/docker"
+BO_DOCKER="/var/lib/docker"
+LOCAL_SOCK="/var/run/docker.sock"
+BO_SOCK="/var/run/docker.sock"
+LOCAL_CERTS="${LOCAL_FB}/certs"
+BO_CERTS="/srv/certs"
+LOCAL_LOGS="/var/log"
+BO_LOGS="/srv/log"
+
+volume="-v ${LOCAL_YML}:${BO_YML}:ro -v ${LOCAL_DOCKER}:${BO_DOCKER}:ro -v ${LOCAL_SOCK}:${BO_SOCK} -v ${LOCAL_CERTS}:${BO_CERTS} -v ${LOCAL_LOGS}:${BO_LOGS} "
+
+# montowanie mfs
+function MFSpathMounter() {
+        if [ "{$MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathMounter"
+        else
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S ${MFS_BASICPATH}/${MFS_TARGET} ${MFS_LOCALPATH}/${MFS_TARGET} >& /dev/null
+        fi
+}
+
+# odmontowanie mfs
+function MFSpathUmounter() {
+        if [  "${MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathUmounter"
+        else
+                umount ${MFS_LOCALPATH}/${MFS_TARGET}
+        fi
+}
+
+# sprawdzenie czy mfs jest zamontowany
+function MFSpathChecker() {
+        if [  "${MFS_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "${MFS_LOCALPATH}/${MFS_TARGET}"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
+
+
+case $1 in
+        start)
+                # Montowanie MFS
+                for i in home opt ; do
+                        MFS_TARGET="$i"
+                        MFSpathChecker
+                        MFS_STATE=$?
+                        if [ ${MFS_STATE} == 1 ]; then
+                                # to be mounted
+                                echo "${MFS_LOCALPATH}/${MFS_TARGET} zostanie zamontowane"
+                                MFSpathMounter
+                        elif [ ${MFS_STATE} == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        elif [ ${MFS_STATE} == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        fi
+                        MFS_TARGET=""
+                done
+
+                # Uruchomienie kontenera:
+                if ! (docker ps -a|grep -q ${BO_NAME}); then
+                                log_daemon_msg "Build and start ${BO_NAME} container"
+				docker run -dt --name ${BO_NAME} --hostname ${BO_HOSTNAME} ${volume} ${environ} \
+				--detach ${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}
+                                status=$?
+                                log_end_msg $status
+                        else
+                                log_daemon_msg "Start ${BO_NAME} container"
+                                docker start ${BO_NAME}
+                                status=$?
+                                log_end_msg $status
+                fi
+                ;;
+
+        stop)
+                log_daemon_msg "Stop ${BO_NAME} container"
+                docker stop ${BO_NAME}
+                status=$?
+                log_end_msg $status
+                ;;
+
+        restart|force-reload)
+                $0 stop && sleep 2 && $0 start
+                ;;
+
+         *)
+                echo "Usage: $0 {start|stop|restart}"
+                exit 2
+                ;;
+
+esac
