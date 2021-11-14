@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocomputex
-BO_VERSION="v2.1.0"
+BO_VERSION="v2.1.2"
 BO_REPO="bockpl/${BOCOMPUTE}:${BO_VERSION}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -55,14 +55,13 @@ BO_SLURMCONF="/etc/slurm"
 # Deklaracja sciezki dbd
 MFS_SLURMDBD="$MFS_CONFIGS/slurmdbd"
 BO_SLURMDBD="/var/lib/slurmd"
-## Deklaracja munge
-#MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
-#BO_MUNGEKEY="/etc/slurm/munge.key"
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+# deklaracja DinD
+DinD="-v /var/run/docker.sock:/var/run/docker.sock --privileged"
+minusV="${DinD} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
 # Deklaracja portów
-BO_PORTS="" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
+BO_PORTS="" 
 # Deklaracja srodowiska NVIDIA
-BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+BO_NVIDIA="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all"
 
 # Sprawdzanie czy nod jest czescia klastra Blueocean SWARM
 function isSwarmNode(){
