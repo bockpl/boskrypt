@@ -15,9 +15,9 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOQMASTER=boqmaster
-BO_VERSION="v2.1.0"
+BO_VERSION="v2.1.2"
 BO_REPO="bockpl/${BOQMASTER}:${BO_VERSION}"
-DEV_NAME=ens160
+DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="${BOQMASTER}"
 BO_IP="10.0.0.$BO_NUMBER"
@@ -59,8 +59,11 @@ BO_SLURMDBD="/var/lib/slurmd"
 ## Deklaracja munge
 #MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
 #BO_MUNGEKEY="/etc/slurm/munge.key"
+## Deklaracja cephfs
+CEPHFS_PATH="/srv/blueocean/cephfs/soft/miniconda3"
+BO_CEPHFS_PATH="/opt/miniconda3"
 # Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${CEPHFS_PATH}:${BO_CEPHFS_PATH} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
 # Deklaracja portów
 BO_PORTS="-p 8000:8000" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
 # Deklaracja srodowiska NVIDIA

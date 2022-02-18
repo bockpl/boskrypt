@@ -55,9 +55,12 @@ BO_SLURMCONF="/etc/slurm"
 # Deklaracja sciezki dbd
 MFS_SLURMDBD="$MFS_CONFIGS/slurmdbd"
 BO_SLURMDBD="/var/lib/slurmd"
+## Deklaracja cephfs
+CEPHFS_PATH="/srv/blueocean/cephfs/soft/miniconda3"
+BO_CEPHFS_PATH="/opt/miniconda3"
 # deklaracja DinD
 DinD="-v /var/run/docker.sock:/var/run/docker.sock --privileged"
-minusV="${DinD} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+minusV="${DinD} -v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${CEPHFS_PATH}:${BO_CEPHFS_PATH} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
 # Deklaracja portów
 BO_PORTS="" 
 # Deklaracja srodowiska NVIDIA
