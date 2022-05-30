@@ -64,7 +64,7 @@ CEPHFS_PATH="/srv/blueocean/cephfs/soft/miniconda3"
 BO_CEPHFS_PATH="/opt/miniconda3"
 # Deklaracja sciezki jupyterhub
 MFS_RUN_JUPYTER="$MFS_CONFIGS/jupyterhub_runfiles"
-BO_RUN_JUPYTER="var/run/jupyterhub"
+BO_RUN_JUPYTER="/var/run/jupyterhub"
 # Deklaracja czlonu -v
 minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${CEPHFS_PATH}:${BO_CEPHFS_PATH} -v ${MFS_RUN_JUPYTER}:${BO_RUN_JUPYTER} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
 # Deklaracja portów
