@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOCOMPUTE=bocomputex
-BO_VERSION="v2.1.2"
+BO_VERSION="v2.1.3"
 BO_REPO="bockpl/${BOCOMPUTE}:${BO_VERSION}"
 DEV_NAME=bond0 
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
@@ -154,7 +154,7 @@ case $1 in
 
 				# Dolaczenie noda do Klastra Blueocean SWARM:
 				log_daemon_msg "Add node to Blueocean SWARM klaster"
-				docker swarm join --token SWMTKN-1-03i2d2uwietrhya3b5qtryyyurzvxkg08wj2av06zm3q9jqut2-0i8gc7v463lmtpofab2urahx7  $MANAGER:2377
+				docker swarm join --token SWMTKN-1-03i2d2uwietrhya3b5qtryyyurzvxkg08wj2av06zm3q9jqut2-0i8gc7v463lmtpofab2urahx7 $MANAGER:2377
 				status=$?
                                 log_end_msg $status
 		fi
