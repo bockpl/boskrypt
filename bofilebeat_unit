@@ -31,7 +31,7 @@ MFS_OPT="${MFS_LOCALPATH}/opt"
 MFS_CONFIGS="${MFS_OPT}/software/Blueocean/Configs"
 
 # Dane srodowiskowe
-environ="-u root --restart unless-stopped"
+environ="-u root --restart on-failure[:max-retries]" 
 
 # Podpinane volumeny
 LOCAL_FB="${MFS_CONFIGS}/filebeat"
@@ -103,7 +103,7 @@ case $1 in
                 # Uruchomienie kontenera:
                 if ! (docker ps -a|grep -q ${BO_NAME}); then
                                 log_daemon_msg "Build and start ${BO_NAME} container"
-				docker run -dt --rm --name ${BO_NAME} --hostname ${BO_HOSTNAME} ${volume} ${environ} \
+				docker run -dt --name ${BO_NAME} --hostname ${BO_HOSTNAME} ${volume} ${environ} \
 				--detach ${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}
                                 status=$?
                                 log_end_msg $status
