@@ -31,7 +31,7 @@ MFS_OPT="${MFS_LOCALPATH}/opt"
 MFS_CONFIGS="${MFS_OPT}/software/Blueocean/Configs"
 
 # Dane srodowiskowe
-environ="-u root --restart on-failure[:3]" 
+environ="-u root --restart on-failure:3" 
 
 # Podpinane volumeny
 LOCAL_FB="${MFS_CONFIGS}/filebeat"
