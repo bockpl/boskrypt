@@ -15,7 +15,7 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOQMASTER=boqmaster
-BO_VERSION="v2.1.4"
+BO_VERSION="v2.1.5"
 BO_REPO="bockpl/${BOQMASTER}:${BO_VERSION}"
 DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
