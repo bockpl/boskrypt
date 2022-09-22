@@ -15,22 +15,24 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne:
 BOQMASTER=boqmaster
-BO_VERSION="v2.1.5"
+BO_VERSION="v2.1.7"
 BO_REPO="bockpl/${BOQMASTER}:${BO_VERSION}"
 DEV_NAME=eth0
 BO_NUMBER="$(echo $(ip addr show $DEV_NAME | grep inet | cut -d"/" -f1 | rev | cut -d"." -f1 | rev))"
 BO_HOSTNAME="${BOQMASTER}"
 BO_IP="10.0.0.$BO_NUMBER"
+
 # Do okreslenia cech i wprowadzenia limitu cpu ALL -1cpu:
 ILOSC_RDZENI_CPU=$(nproc)
 RDZENIE_BOQMASTER=$(expr $ILOSC_RDZENI_CPU - 1)
+
 # Do okreslenia  cech i limitow pamieci ALL -4GB:
 ILOSC_PAMIECI=$(docker info |grep "Total Memory:" | rev |awk '{print $1}'| rev | cut -d "." -f1)
 PAMIEC_BOQMASTER=$(expr $ILOSC_PAMIECI - 1)
 PAMIEC_BOQMASTER_G="$(echo ""$PAMIEC_BOQMASTER"G")"
 SHM_SIZE=3
-#SHM_SIZE="$(df -h |grep /dev/shm | awk '{print $2}' | rev |cut -c 2- |rev | xargs -I{} expr {} - 1)g"
-# Deklaracja zmiennych mfs sciezek home i opt
+
+# Deklaracja zmiennych mfs/ceph sciezek home i opt
 MFSMASTER=mfsmaster.dev.p.lodz.pl
 BO_HOME="/home"
 BO_OPT="/opt"
@@ -38,39 +40,50 @@ MFS_CHUNK="/opt"
 MFS_TARGET=""
 MFS_BASICPATH="/blueocean"
 MFS_LOCALPATH="/srv/blueocean"
-MFS_HOME="$MFS_LOCALPATH/home"
-MFS_OPT="$MFS_LOCALPATH/opt"
-MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
+MFS_HOME="${MFS_LOCALPATH}/home"
+MFS_OPT="${MFS_LOCALPATH}/opt"
+MFS_CONFIGS="${MFS_OPT}/software/Blueocean/Configs"
+CEPH_BASICPATH="/"
+CEPH_LOCALPATH="/srv/blueocean"
+CEPH_FS=""
+CEPH_SPACE="cephfs_hdd"
+CEPH_HOME="${CEPH_LOCALPATH}/${CEPH_SPACE}/home"
+CEPH_OPT="${CEPH_LOCALPATH}/${CEPH_SPACE}/opt"
+CEPH_CONFIGS="${CEPH_OPT}/software/Blueocean/Configs"
+
 # Deklaracja sciezki LDAP
-MFS_LDAPCONF="$MFS_CONFIGS/nslcd.conf"
+CEPH_LDAPCONF="${CEPH_CONFIGS}/nslcd.conf"
 BO_LDAPCONF="/etc/nslcd.conf"
+
 # Deklaracja aliasow
-MFS_ALIAS="$MFS_CONFIGS/aliases"
+CEPH_ALIAS="${CEPH_CONFIGS}/aliases"
 BO_ALIAS="/etc/aliases"
+
 # Deklaracja msmtp
-MFS_MSMTP="$MFS_CONFIGS/msmtprc"
+CEPH_MSMTP="${CEPH_CONFIGS}/msmtprc"
 BO_MSMTP="/etc/msmtprc"
+
 # Deklaracja sciezki SLURM
-MFS_SLURMCONF="$MFS_CONFIGS/slurmconf"
+CEPH_SLURMCONF="${CEPH_CONFIGS}/slurmconf"
 BO_SLURMCONF="/etc/slurm"
+
 # Deklaracja sciezki dbd
-MFS_SLURMDBD="$MFS_CONFIGS/slurmdbd"
+CEPH_SLURMDBD="${CEPH_CONFIGS}/slurmdbd"
 BO_SLURMDBD="/var/lib/slurmd"
-## Deklaracja munge
-#MFS_MUNGEKEY="$MFS_CONFIGS/slurm/munge.key"
-#BO_MUNGEKEY="/etc/slurm/munge.key"
-## Deklaracja cephfs
-CEPHFS_PATH="/srv/blueocean/cephfs/soft/miniconda3"
-BO_CEPHFS_PATH="/opt/miniconda3"
+
 # Deklaracja sciezki jupyterhub
-MFS_RUN_JUPYTER="$MFS_CONFIGS/jupyterhub_runfiles"
+CEPH_RUN_JUPYTER="${CEPH_CONFIGS}/jupyterhub_runfiles"
 BO_RUN_JUPYTER="/var/run/jupyterhub"
+
 # Deklaracja czlonu -v
-minusV="-v ${MFS_OPT}:${BO_OPT} -v ${MFS_HOME}:${BO_HOME} -v ${MFS_LDAPCONF}:${BO_LDAPCONF} -v ${MFS_SLURMCONF}:${BO_SLURMCONF} -v ${MFS_SLURMDBD}:${BO_SLURMDBD} -v ${CEPHFS_PATH}:${BO_CEPHFS_PATH} -v ${MFS_RUN_JUPYTER}:${BO_RUN_JUPYTER} -v ${MFS_ALIAS}:${BO_ALIAS} -v ${MFS_MSMTP}:${BO_MSMTP} "
+minusV="-v ${CEPH_OPT}:${BO_OPT} -v ${CEPH_HOME}:${BO_HOME} -v ${CEPH_LDAPCONF}:${BO_LDAPCONF} -v ${CEPH_SLURMCONF}:${BO_SLURMCONF} -v ${CEPH_SLURMDBD}:${BO_SLURMDBD} -v ${CEPH_RUN_JUPYTER}:${BO_RUN_JUPYTER} -v ${CEPH_ALIAS}:${BO_ALIAS} -v ${CEPH_MSMTP}:${BO_MSMTP} "
+
 # Deklaracja portów
 BO_PORTS="-p 8000:8000" #"-p 6445:6445 -p 6817:6817 -p 6819:6819"
+
 # Deklaracja srodowiska NVIDIA
 BO_NVIDIA="" #"--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all -e NVIDIA_DRIVER_CAPABILITIES=all --privileged"
+
 # Debugowanie
 BO_DEBUG="-e DEBUG=true"
 
@@ -85,33 +98,33 @@ function isSwarmNode(){
 
 # Pobranie aktualnej konfiguracji swarm:
 function getManagerSwarm() {
-        SWARMMAN=$(cat $MFS_CONFIGS/swarm_manager.list)
+        SWARMMAN=$(cat ${CEPH_CONFIGS}/swarm_manager.list)
 }
 
 # montowanie mfs
 function MFSpathMounter() {
-        if [ "$MFS_TARGET" == "" ]; then
+        if [ "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathMounter"
         else
-                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S ${MFS_BASICPATH}/${MFS_TARGET} ${MFS_LOCALPATH}/${MFS_TARGET} >& /dev/null
         fi
 }
 
 # odmontowanie mfs
 function MFSpathUmounter() {
-        if [  "$MFS_TARGET" == "" ]; then
+        if [  "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathUmounter"
         else
-                umount $MFS_LOCALPATH/$MFS_TARGET
+                umount ${MFS_LOCALPATH}/${MFS_TARGET}
         fi
 }
 
 # sprawdzenie czy mfs jest zamontowany
 function MFSpathChecker() {
-        if [  "$MFS_TARGET" == "" ]; then
+        if [  "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathChecker"
         else
-                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "${MFS_LOCALPATH}/${MFS_TARGET}"`" == "" ]; then
                         return 1
                 else
                         return 0
@@ -119,6 +132,38 @@ function MFSpathChecker() {
         fi
 }
 
+# montowanie cephfs
+function CEPHpathMounter() {
+        if [ "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla CEPHpathMounter"
+        elif [ "${CEPH_FS}" == "" ]; then
+                echo "Nieokreslona przestrzen dla CEPHpathMounter"
+        else
+                mount -vt ceph :${CEPH_BASICPATH} ${CEPH_LOCALPATH}/${CEPH_TARGET} -o name=${CEPH_FS},fs=${CEPH_FS} >& /dev/null
+        fi
+}
+
+# odmontowanie cephfs
+function CEPHpathUmounter() {
+        if [  "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla CEPHpathUmounter"
+        else
+                umount ${CEPH_LOCALPATH}/${CEPH_TARGET}
+        fi
+}
+
+# sprawdzenie czy cephfs jest zamontowany
+function CEPHpathChecker() {
+        if [  "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep ceph | cut -d' ' -f2 | grep "${CEPH_LOCALPATH}/${CEPH_TARGET}"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
 
 case $1 in
         start)
@@ -127,17 +172,41 @@ case $1 in
                         MFS_TARGET="$i"
                         MFSpathChecker
                         MFS_STATE=$?
-                        if [ $MFS_STATE == 1 ]; then
+                        if [ ${MFS_STATE} == 1 ]; then
                                 # to be mounted
-                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                echo "${MFS_LOCALPATH}/${MFS_TARGET} zostanie zamontowane"
                                 MFSpathMounter
-                        elif [ $MFS_STATE == 0 ]; then
+                        elif [ ${MFS_STATE} == 0 ]; then
                                 # mounted
-                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                                echo "Znaleziono zamontowane ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        elif [ ${MFS_STATE} == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${MFS_LOCALPATH}/${MFS_TARGET}"
                         fi
                         MFS_TARGET=""
+                done
+
+                # Montowanie CEPH
+                for i in blueocean bohdd ; do
+                        CEPH_FS="$i"
+                        if [ "${CEPH_FS}" == "bohdd" ]; then
+                                CEPH_TARGET="cephfs_hdd"
+                        elif [ "${CEPH_FS}" == "blueocean" ]; then
+                                CEPH_TARGET="cephfs"
+                        fi
+                        CEPHpathChecker
+                        CEPH_STATE=$?
+                        if [ ${CEPH_STATE} == 1 ]; then
+                                # to be mounted
+                                echo "${CEPH_LOCALPATH}/${CEPH_TARGET} zostanie zamontowane"
+                                CEPHpathMounter
+                        elif [ ${CEPH_STATE} == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane ${CEPH_LOCALPATH}/${CEPH_TARGET}"
+                        elif [ ${CEPH_STATE} == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${CEPH_LOCALPATH}/${CEPH_TARGET}"
+                        fi
+                        CEPH_FS=""
+                        CEPH_TARGET=""
                 done
 
                 # Sprawdzenie czy nod jest czescia swarma
@@ -186,12 +255,6 @@ case $1 in
                 docker stop ${BO_HOSTNAME}
                 status=$?
                 log_end_msg $status
-                # odmontowanie MFS
-                #for i in home opt ; do
-                #        MFS_TARGET="$i"
-                #        MFSpathUmounter
-                #        MFS_TARGET=""
-                #done
 		;;
 	restart|force-reload)
                 $0 stop && sleep 2 && $0 start

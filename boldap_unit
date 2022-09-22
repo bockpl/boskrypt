@@ -13,13 +13,11 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 . /lib/lsb/init-functions
 
+# Zmienne
+BOLDAP=bodb
 BO_IMAGE="osixia/openldap"
 BO_VERSION=1.3.0
-BO_HOSTNAME=bodb
-
-#BO_NUMBER="244"
-#BO_HOSTNAME="bo$BO_NUMBER"
-#BO_IP="10.0.0.$BO_NUMBER"
+BO_HOSTNAME=${BOLDAP}
 
 # Deklaracja zmiennych mfs sciezek home i opt
 BO_HOME="/home"
@@ -31,6 +29,13 @@ MFS_LOCALPATH="/srv/blueocean"
 MFS_HOME="$MFS_LOCALPATH/home"
 MFS_OPT="$MFS_LOCALPATH/opt"
 MFS_CONFIGS="$MFS_OPT/software/Blueocean/Configs"
+CEPH_BASICPATH="/"
+CEPH_LOCALPATH="/srv/blueocean"
+CEPH_FS=""
+CEPH_SPACE="cephfs_hdd"
+CEPH_HOME="${CEPH_LOCALPATH}/${CEPH_SPACE}/home"
+CEPH_OPT="${CEPH_LOCALPATH}/${CEPH_SPACE}/opt"
+CEPH_CONFIGS="${CEPH_OPT}/software/Blueocean/Configs"
 
 # Dane srodowiskowe
 BO_ORGANIZATION="UCI"
@@ -41,9 +46,9 @@ BO_LDAPBASEDN="dc=kopl,dc=bo"
 environ="--env LDAP_ORGANIZATION="${BO_ORGANIZATION}" --env LDAP_DOMAIN="${BO_LDAPDOMAIN}" --env LDAP_ADMIN_PASSWORD="${BO_ADMINPASS}" --env LDAP_BASE_DN="${BO_LDAPBASEDN}""
 
 # Podpinane volumeny
-LOCAL_LDAPDBPATH="$MFS_CONFIGS/ldapdb"
+LOCAL_LDAPDBPATH="$CEPH_CONFIGS/ldapdb"
 BO_LDAPDBPATH="/var/lib/ldap"
-LOCAL_LDAPCONFIG="$MFS_CONFIGS/ldapcfg"
+LOCAL_LDAPCONFIG="$CEPH_CONFIGS/ldapcfg"
 BO_LDAPCONFIG="/etc/ldap/slapd.d"
 
 volume="--volume ${LOCAL_LDAPDBPATH}:${BO_LDAPDBPATH} --volume ${LOCAL_LDAPCONFIG}:${BO_LDAPCONFIG}"
@@ -53,28 +58,28 @@ BO_PORTS="-p 389:389 -p 636:636"
 
 # montowanie mfs
 function MFSpathMounter() {
-        if [ "$MFS_TARGET" == "" ]; then
+        if [ "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathMounter"
         else
-                mfsmount -H mfsmaster.dev.p.lodz.pl -S $MFS_BASICPATH/$MFS_TARGET $MFS_LOCALPATH/$MFS_TARGET >& /dev/null
+                mfsmount -H mfsmaster.dev.p.lodz.pl -S ${MFS_BASICPATH}/${MFS_TARGET} ${MFS_LOCALPATH}/${MFS_TARGET} >& /dev/null
         fi
 }
 
 # odmontowanie mfs
 function MFSpathUmounter() {
-        if [  "$MFS_TARGET" == "" ]; then
+        if [  "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathUmounter"
         else
-                umount $MFS_LOCALPATH/$MFS_TARGET
+                umount ${MFS_LOCALPATH}/${MFS_TARGET}
         fi
 }
 
 # sprawdzenie czy mfs jest zamontowany
 function MFSpathChecker() {
-        if [  "$MFS_TARGET" == "" ]; then
+        if [  "${MFS_TARGET}" == "" ]; then
                 echo "Nieokreslona sciezka dla MFSpathChecker"
         else
-                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "$MFS_LOCALPATH/$MFS_TARGET"`" == "" ]; then
+                if [ "`cat /proc/mounts | grep mfs | cut -d' ' -f2 | grep "${MFS_LOCALPATH}/${MFS_TARGET}"`" == "" ]; then
                         return 1
                 else
                         return 0
@@ -82,6 +87,38 @@ function MFSpathChecker() {
         fi
 }
 
+# montowanie cephfs
+function CEPHpathMounter() {
+        if [ "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla CEPHpathMounter"
+        elif [ "${CEPH_FS}" == "" ]; then
+                echo "Nieokreslona przestrzen dla CEPHpathMounter"
+        else
+                mount -vt ceph :${CEPH_BASICPATH} ${CEPH_LOCALPATH}/${CEPH_TARGET} -o name=${CEPH_FS},fs=${CEPH_FS} >& /dev/null
+        fi
+}
+
+# odmontowanie cephfs
+function CEPHpathUmounter() {
+        if [  "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla CEPHpathUmounter"
+        else
+                umount ${CEPH_LOCALPATH}/${CEPH_TARGET}
+        fi
+}
+
+# sprawdzenie czy cephfs jest zamontowany
+function CEPHpathChecker() {
+        if [  "${CEPH_TARGET}" == "" ]; then
+                echo "Nieokreslona sciezka dla MFSpathChecker"
+        else
+                if [ "`cat /proc/mounts | grep ceph | cut -d' ' -f2 | grep "${CEPH_LOCALPATH}/${CEPH_TARGET}"`" == "" ]; then
+                        return 1
+                else
+                        return 0
+                fi
+        fi
+}
 
 case $1 in
         start)
@@ -90,23 +127,48 @@ case $1 in
                         MFS_TARGET="$i"
                         MFSpathChecker
                         MFS_STATE=$?
-                        if [ $MFS_STATE == 1 ]; then
+                        if [ ${MFS_STATE} == 1 ]; then
                                 # to be mounted
-                                echo "$MFS_LOCALPATH/$MFS_TARGET zostanie zamontowane"
+                                echo "${MFS_LOCALPATH}/${MFS_TARGET} zostanie zamontowane"
                                 MFSpathMounter
-                        elif [ $MFS_STATE == 0 ]; then
+                        elif [ ${MFS_STATE} == 0 ]; then
                                 # mounted
-                                echo "Znaleziono zamontowane $MFS_LOCALPATH/$MFS_TARGET"
-                        elif [ $MFS_STATE == 2 ]; then
-                                echo "Problem z prawidlowym wyszukaniem $MFS_LOCALPATH/$MFS_TARGET"
+                                echo "Znaleziono zamontowane ${MFS_LOCALPATH}/${MFS_TARGET}"
+                        elif [ ${MFS_STATE} == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${MFS_LOCALPATH}/${MFS_TARGET}"
                         fi
                         MFS_TARGET=""
+                done
+
+                # Montowanie CEPH
+                for i in blueocean bohdd ; do
+                        CEPH_FS="$i"
+                        if [ "${CEPH_FS}" == "bohdd" ]; then
+                                CEPH_TARGET="cephfs_hdd"
+                        elif [ "${CEPH_FS}" == "blueocean" ]; then
+                                CEPH_TARGET="cephfs"
+                        fi
+                        CEPHpathChecker
+                        CEPH_STATE=$?
+                        if [ ${CEPH_STATE} == 1 ]; then
+                                # to be mounted
+                                echo "${CEPH_LOCALPATH}/${CEPH_TARGET} zostanie zamontowane"
+                                CEPHpathMounter
+                        elif [ ${CEPH_STATE} == 0 ]; then
+                                # mounted
+                                echo "Znaleziono zamontowane ${CEPH_LOCALPATH}/${CEPH_TARGET}"
+                        elif [ ${CEPH_STATE} == 2 ]; then
+                                echo "Problem z prawidlowym wyszukaniem ${CEPH_LOCALPATH}/${CEPH_TARGET}"
+                        fi
+                        CEPH_FS=""
+                        CEPH_TARGET=""
                 done
 
                 # Uruchomienie kontenera:
                 if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
                                 log_daemon_msg "Build and start ${BO_HOSTNAME} container"
-				docker run ${BO_PORTS} --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} --detach ${BO_IMAGE}:${BO_VERSION}
+				docker run ${BO_PORTS} --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} \
+                                --detach ${BO_IMAGE}:${BO_VERSION}
                                 status=$?
                                 log_end_msg $status
                         else
