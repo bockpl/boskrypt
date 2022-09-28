@@ -15,7 +15,9 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne
 BO_IMAGE=mysql
-BO_VERSION=5.7
+BO_IMAGE_PATH="bockpl"
+BO_VERSION=v5.7
+BO_REPO="${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}"
 BO_HOSTNAME=mysql
 BO_NUMBER="244"
 BO_IP="10.0.0.$BO_NUMBER"
@@ -205,7 +207,7 @@ case $1 in
                 if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
                                 log_daemon_msg "Build and start ${BO_HOSTNAME} container"
 				docker run --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} \
-				--net cluster_network --ip ${BO_IP} --detach ${BO_IMAGE}:${BO_VERSION}
+				--net cluster_network --ip ${BO_IP} --detach ${BO_REPO}
                                 status=$?
                                 log_end_msg $status
                         else

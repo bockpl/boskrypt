@@ -15,8 +15,10 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 
 # Zmienne
 BOLDAP=bodb
-BO_IMAGE="osixia/openldap"
-BO_VERSION=1.3.0
+BO_IMAGE="openldap"
+BO_IMAGE_PATH="bockpl"
+BO_VERSION=v1.5.0
+BO_REPO="${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}"
 BO_HOSTNAME=${BOLDAP}
 
 # Deklaracja zmiennych mfs sciezek home i opt
@@ -168,7 +170,7 @@ case $1 in
                 if ! (docker ps -a|grep -q ${BO_HOSTNAME}); then
                                 log_daemon_msg "Build and start ${BO_HOSTNAME} container"
 				docker run ${BO_PORTS} --name ${BO_HOSTNAME} --hostname ${BO_HOSTNAME} ${environ} ${volume} \
-                                --detach ${BO_IMAGE}:${BO_VERSION}
+                                --detach ${BO_REPO}
                                 status=$?
                                 log_end_msg $status
                         else

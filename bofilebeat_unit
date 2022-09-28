@@ -16,8 +16,9 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/lib/klibc/bin
 # Zmienne
 BOFILEBEAT=${HOSTNAME}
 BO_IMAGE="filebeat"
-BO_IMAGE_PATH="docker.elastic.co/beats"
-BO_VERSION=7.5.1
+BO_IMAGE_PATH="bockpl"
+BO_VERSION=v7.5.1
+BO_REPO="${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}"
 BO_HOSTNAME="${BOFILEBEAT}"
 BO_NAME="${BO_IMAGE}"
 
@@ -170,7 +171,7 @@ case $1 in
                 if ! (docker ps -a|grep -q ${BO_NAME}); then
                                 log_daemon_msg "Build and start ${BO_NAME} container"
 				docker run -dt --name ${BO_NAME} --hostname ${BO_HOSTNAME} ${volume} ${environ} \
-				--detach ${BO_IMAGE_PATH}/${BO_IMAGE}:${BO_VERSION}
+				--detach ${BO_REPO}
                                 status=$?
                                 log_end_msg $status
                         else
